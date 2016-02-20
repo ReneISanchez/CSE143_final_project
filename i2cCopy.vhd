@@ -24,6 +24,7 @@ package vl2vh_common_pack is
     type vl2vh_memory_type is      array  ( natural range <> , natural range <>  )  of std_logic ;
     function vl2vh_ternary_func(  constant cond : Boolean;  constant trueval : std_logic;  constant falseval : std_logic)  return std_logic; 
     function vl2vh_ternary_func(  constant cond : Boolean;  constant trueval : std_logic_vector;  constant falseval : std_logic_vector)  return std_logic_vector; 
+    function to_Boolean(a: std_ulogic) return boolean;
 end package; 
 
 
@@ -46,6 +47,14 @@ package body vl2vh_common_pack is
              return falseval;
         end if;
     end;
+    function to_Boolean(a: std_ulogic) return boolean is
+    begin
+        if a = '1' then
+             return(true);
+        else
+             return(false);
+        end if;
+    end;
 end; 
 
 
@@ -56,9 +65,6 @@ use ieee.std_logic_misc.all;
 use ieee.numeric_std.all;
 use work.vl2vh_common_pack.all;
 entity I2CslaveWith8bitsIO is 
-generic (
-        I2C_ADR : INTEGER := 39 
-    );
      port (
         SDA :  inout std_logic;
         SCL :  in std_logic;
@@ -68,7 +74,9 @@ end entity;
 
 
 architecture rtl of I2CslaveWith8bitsIO is 
+    signal I2C_ADR : std_logic_vector (7 downto 0):= X"27"; 
     signal SDA_shadow : std_logic;
+	 signal vectorOne : std_logic_vector (3 downto 0) := X"1";
     signal start_or_stop : std_logic;
     signal incycle : std_logic;
     signal bitcnt : std_logic_vector( 3  downto 0  );
@@ -82,88 +90,93 @@ architecture rtl of I2CslaveWith8bitsIO is
     signal SDAr : std_logic;
     signal mem : std_logic_vector( 7  downto 0  );
     signal op_write : std_logic := (  not op_read ) ;
-    signal subsetBitcnt : std_logic_vector := (bitcnt(2 downto 0));
+    signal subsetBitcnt : std_logic_vector (2 downto 0) := (bitcnt(2 downto 0));
     signal memInt : natural := (to_integer(unsigned(subsetBitcnt)));
     signal mem_bit_low : std_logic := (not mem(memInt));
     signal SDA_assert_low : std_logic := ( ( ( ( ( adr_match and bit_DATA )  and data_phase )  and op_read )  and mem_bit_low )  and got_ACK ) ;
     signal SDA_assert_ACK : std_logic := ( ( adr_match and bit_ACK )  and ( adr_phase or op_write )  ) ;
     signal SDA_low : std_logic := ( SDA_assert_low or SDA_assert_ACK ) ;
     begin 
-        SDA_shadow <= vl2vh_ternary_func( ( (  not SCL )  or
-		  start_or_stop ) , SDA, SDA_shadow );
-        start_or_stop <= vl2vh_ternary_func( (  not SCL ) , '0', ( SDA xor SDA_shadow )  );
+        SDA_shadow <= vl2vh_ternary_func( ( (  not (to_Boolean(SCL)) )  or to_Boolean(start_or_stop) ) , SDA, SDA_shadow );
+        start_or_stop <= vl2vh_ternary_func( (  not (to_Boolean(SCL)) ) , '0', ( SDA xor SDA_shadow )  );
         process 
         begin
-            wait until ( ( start_or_stop'EVENT and ( start_or_stop = '1' )  )  or ( SCL'EVENT and ( SCL = '0' )  )  ) ;
-            if ( start_or_stop ) then 
+            wait until (falling_edge(SCL));
+            if ( to_Boolean(start_or_stop)) then 
                 incycle <= '0';
-            else 
-                if ( (  not SDA )  ) then 
+            else
+                if ( (  not (to_Boolean(SDA)))) then 
                     incycle <= '1';
                 end if;
             end if;
         end process;
+
+
+
         process 
         begin
-            wait until ( ( incycle'EVENT and ( incycle = '0' )  )  or ( SCL'EVENT and ( SCL = '0' )  )  ) ;
-            if ( (  not incycle )  ) then 
+            wait until (falling_edge(SCL)) ;
+            if ( (  not (to_Boolean(incycle)))  ) then 
                 bitcnt <= X"7" ;
-                data_phase <= 0 ;
+                data_phase <= '0' ;
             else 
-                if ( bit_ACK ) then 
+                if ( to_Boolean(bit_ACK) ) then 
                     bitcnt <= X"7" ;
-                    data_phase <= 1 ;
+                    data_phase <= '1' ;
                 else 
-                    bitcnt <= ( bitcnt - X"1"  ) ;
-                end if;
+                    bitcnt <= std_logic_vector(unsigned(bitcnt) - unsigned(vectorOne));
+               end if;
             end if;
         end process;
+
         process 
         begin
             wait until ( SCL'EVENT and ( SCL = '1' )  ) ;
             SDAr <= SDA;
         end process;
+
         process 
         begin
-            wait until ( ( incycle'EVENT and ( incycle = '0' )  )  or ( SCL'EVENT and ( SCL = '0' )  )  ) ;
-            if ( (  not incycle )  ) then 
-                got_ACK <= 0 ;
-                adr_match <= 1 ;
-                op_read <= 0 ;
+            wait until (falling_edge(SCL)) ;
+            if ( (  not (to_Boolean(incycle)) ) ) then 
+                got_ACK <= '0';
+                adr_match <= '1';
+                op_read <= '0';
             else 
-                if ( ( ( adr_phase and ( bitcnt = 7  )  )  and ( SDAr /= I2C_ADR(6 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( (to_Boolean(adr_phase)) and ( bitcnt = x"7"  )  )  and ( SDAr /= I2C_ADR(6 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( ( adr_phase and ( bitcnt = 6  )  )  and ( SDAr /= I2C_ADR(5 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( to_Boolean(adr_phase) and ( bitcnt = x"6"  )  )  and ( SDAr /= I2C_ADR(5 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( ( adr_phase and ( bitcnt = 5  )  )  and ( SDAr /= I2C_ADR(4 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( to_Boolean(adr_phase) and ( bitcnt = x"5"  )  )  and ( SDAr /= I2C_ADR(4 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( ( adr_phase and ( bitcnt = 4  )  )  and ( SDAr /= I2C_ADR(3 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( to_Boolean(adr_phase) and ( bitcnt = x"4"  )  )  and ( SDAr /= I2C_ADR(3 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( ( adr_phase and ( bitcnt = 3  )  )  and ( SDAr /= I2C_ADR(2 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( to_Boolean(adr_phase) and ( bitcnt = x"3"  )  )  and ( SDAr /= I2C_ADR(2 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( ( adr_phase and ( bitcnt = 2  )  )  and ( SDAr /= I2C_ADR(1 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( to_Boolean(adr_phase) and ( bitcnt = x"2"  )  )  and ( SDAr /= I2C_ADR(1 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( ( adr_phase and ( bitcnt = 1  )  )  and ( SDAr /= I2C_ADR(0 ) )  )  ) then 
-                    adr_match <= 0 ;
+                if ( ( ( to_Boolean(adr_phase) and ( bitcnt = x"1"  )  )  and ( SDAr /= I2C_ADR(0 ) )  )  ) then 
+                    adr_match <= '0' ;
                 end if;
-                if ( ( adr_phase and ( bitcnt = 0  )  )  ) then 
+                if ( ( to_Boolean(adr_phase) and ( bitcnt = x"0"  )  )  ) then 
                     op_read <= SDAr;
                 end if;
-                if ( bit_ACK ) then 
+                if ( to_Boolean(bit_ACK)) then 
                     got_ACK <= (  not SDAr ) ;
                 end if;
-                if ( ( ( ( adr_match and bit_DATA )  and data_phase )  and op_write )  ) then 
-                    mem(bitcnt) <= SDAr;
+                if ( ( ( ( to_Boolean(adr_match) and to_Boolean(bit_DATA))  and to_Boolean(data_phase) )  and to_Boolean(op_write) )  ) then 
+                    mem(to_integer(unsigned(bitcnt))) <= SDAr;
                 end if;
             end if;
         end process;
-        SDA <= vl2vh_ternary_func( SDA_low, '0', 'z' );
+
+        SDA <= vl2vh_ternary_func( to_Boolean(SDA_low), '0', 'Z' );
         IOout <= mem;
     end; 
 
