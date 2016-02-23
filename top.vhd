@@ -18,8 +18,7 @@
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.numeric_std.all;
 
 ------------------------------------------------------------------------------
 entity top is
@@ -41,7 +40,9 @@ entity top is
 	--attribute SCHMITT_TRIGGER of i2c_dat: signal is "TRUE";
 end top;
 
-
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.numeric_std.all;
 entity top_master is
 	port(
 	   -- I2C master interface
@@ -49,7 +50,7 @@ entity top_master is
 	   i2c_clk: out std_logic;
 		i2c_dat: inout std_logic;
 
-		reset_out: out std_logic;
+		reset_out: in std_logic;
 
 	   -- Data input
 		--------------- 
@@ -103,14 +104,14 @@ architecture Behavioral_master of top_master is
 	signal i2c_din: std_logic_vector(7 downto 0);
 
 	-- i2c COMPONENT declaration
-	component i2cs_rx is
+	component i2c_m_rx is
 		generic(
 			DADDR	: std_logic_vector(6 downto 0):= "0010001";		   -- 11h (22h) device address
 			ADDR	: std_logic_vector(7 downto 0):= "00000001"		-- 00h	    sub address
 		);
 		port(
 			RST		: in std_logic;
-			SCL		: in std_logic;
+			SCL		: out std_logic;
 			SDA		: inout std_logic;
 			DOUT		: out std_logic_vector(7 downto 0)					-- Recepted over i2c data byte
 		);
@@ -119,16 +120,16 @@ begin
 
 ------------------------------------------------------------------------------
 	-- i2c COMPONENT PORT MAP
-	i2cs_rx_lab: i2cs_rx
+	i2c_m_rx_lab: i2c_m_rx
 	port map (
 		SCL=>i2c_clk,
-		RST=>reset_in,
+		RST=>reset_out,
 		SDA=>i2c_dat,
-		DIN=>i2c_din 
+		DOUT=>i2c_din 
 	);
 
 ------------------------------------------------------------------------------
-	vdat_in <= i2c_din;
+	--vdat_in <= i2c_din;
 
 
 end Behavioral_master;

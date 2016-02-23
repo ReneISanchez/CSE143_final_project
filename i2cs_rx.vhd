@@ -37,8 +37,7 @@
 
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.numeric_std.all;
 
 ------------------------------------------------------------------------------
 entity i2cs_rx is
@@ -95,7 +94,7 @@ process (RST, SCL, SDA_IN)
 begin
 	if RST = '0' or SCL = '0' then
 		START <= '0';
-	elsif SCL = '1' and SDA_IN = '0' and SDA_IN'event then
+	elsif SCL = '1' and (SDA_IN = '0' and SDA_IN'event) then
 		START <= '1';
 	end if;
 end process;
@@ -106,7 +105,7 @@ process (RST, SCL, SDA_IN, START)
 begin
 	if RST = '0' or SCL = '0' or START='1' then
 		STOP <= '0';
-	elsif SCL = '1' and SDA_IN = '1' and SDA_IN'event then
+	elsif SCL = '1' and (SDA_IN = '1' and SDA_IN'event) then
 		STOP <= '1';
 	end if;
 end process;
@@ -143,7 +142,7 @@ process (RST, STATE, ACK, SHIFTREG)
 begin
 if RST = '0' then
 	DOUT_S <= "00000000";
-elsif STATE="11" and ACK='1' and ACK'event then 
+elsif STATE="11" and (ACK='1' and ACK'event) then 
 	DOUT_S <= SHIFTREG(7 downto 0);
 end if;
 end process; 
@@ -157,7 +156,7 @@ if RST = '0' or ACTIVE = '0' then
 	STATE <= "00";
 elsif SCL='0' and SCL'event then 
 	if SHIFTREG(8) = '1' and STATE/="11" then
-		STATE <= STATE + 1;
+		STATE <= std_logic_vector(unsigned(STATE) + "1");
 		if ((STATE="00" and SHIFTREG(7 downto 0) = DADDR & WR) or (STATE="01" and SHIFTREG(7 downto 0) = ADDR) or STATE="10") then 
 			ACK <= '1';
 		else
