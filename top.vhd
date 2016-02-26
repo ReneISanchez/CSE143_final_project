@@ -25,7 +25,7 @@ entity top is
 	port(
 	   -- I2C slave interface
 		---------------
-	   i2c_clk: in std_logic;
+	   i2c_scl: in std_logic;
 		i2c_dat: inout std_logic;
 
 		reset_in: in std_logic;
@@ -47,7 +47,9 @@ entity top_master is
 	port(
 	   -- I2C master interface
 		---------------
-	   i2c_clk: out std_logic;
+	   i2c_scl: out std_logic;
+		i2c_clk: in std_logic;
+		i2c_dout: out std_logic_vector(7 downto 0);
 		i2c_dat: inout std_logic;
 
 		reset_out: in std_logic;
@@ -89,7 +91,7 @@ begin
 	-- i2c COMPONENT PORT MAP
 	i2cs_rx_lab: i2cs_rx
 	port map (
-		SCL=>i2c_clk,
+		SCL=>i2c_scl,
 		RST=>reset_in,
 		SDA=>i2c_dat,
 		DOUT=>i2c_dout 
@@ -101,7 +103,7 @@ begin
 end Behavioral;
 
 architecture Behavioral_master of top_master is
-	signal i2c_din: std_logic_vector(7 downto 0);
+	signal i2c_dout_m: std_logic_vector(7 downto 0);
 
 	-- i2c COMPONENT declaration
 	component i2c_m_rx is
@@ -110,9 +112,11 @@ architecture Behavioral_master of top_master is
 			ADDR	: std_logic_vector(7 downto 0):= "00000001"		-- 00h	    sub address
 		);
 		port(
+			CLK		: in std_logic;
 			RST		: in std_logic;
 			SCL		: out std_logic;
 			SDA		: inout std_logic;
+			DIN 		: in std_logic_vector(7 downto 0);
 			DOUT		: out std_logic_vector(7 downto 0)					-- Recepted over i2c data byte
 		);
 	end component;
@@ -122,10 +126,12 @@ begin
 	-- i2c COMPONENT PORT MAP
 	i2c_m_rx_lab: i2c_m_rx
 	port map (
-		SCL=>i2c_clk,
+		CLK=>i2c_clk,
+		SCL=>i2c_scl,
 		RST=>reset_out,
 		SDA=>i2c_dat,
-		DOUT=>i2c_din 
+		DIN=>vdat_in,
+		DOUT=>i2c_dout_m 
 	);
 
 ------------------------------------------------------------------------------

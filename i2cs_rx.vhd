@@ -43,8 +43,8 @@ use IEEE.numeric_std.all;
 entity i2cs_rx is
 	generic(
 		WR       : std_logic:='0';
-		DADDR		: std_logic_vector(6 downto 0); --:= "0010001";		   -- 11h (22h) device address
-		ADDR		: std_logic_vector(7 downto 0)  --:= "00000000"		   -- 00h	    sub address		
+		DADDR		: std_logic_vector(6 downto 0) := "0000000";		   -- 11h (22h) device address
+		ADDR		: std_logic_vector(7 downto 0)  := "00000000"		   -- 00h	    sub address		
 	);
 	port(
 		RST		: in std_logic;

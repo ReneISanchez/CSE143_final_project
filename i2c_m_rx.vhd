@@ -42,14 +42,16 @@ use IEEE.numeric_std.all;
 ------------------------------------------------------------------------------
 entity i2c_m_rx is
 	generic(
-		DADDR		: std_logic_vector(6 downto 0); --:= "0010001";		   -- 11h (22h) device address
-		ADDR		: std_logic_vector(7 downto 0)  --:= "00000000"		   -- 00h	    sub address		
+		DADDR		: std_logic_vector(6 downto 0) := "0000001";		   -- 11h (22h) device address
+		ADDR		: std_logic_vector(7 downto 0)  := "00000000"		   -- 00h	    sub address		
 	);
 	port(
+		CLK		: in std_logic;
 		RST		: in std_logic;
-		SCL		: inout std_logic;
+		SCL		: out std_logic := '0';
 		SDA		: inout std_logic;
-		DIN 		: in std_logic_vector(7 downto 0)			   -- Recepted over i2c data byte
+		DIN 		: in std_logic_vector(7 downto 0);			   -- Recepted over i2c data byte
+		DOUT 		: out std_logic_vector(7 downto 0) := "00000000"
 	);
 	--SCHMITT TRIGGER activation (folowing 3 strings should be uncommented)
 	--attribute SCHMITT_TRIGGER: string; 
@@ -61,39 +63,50 @@ end i2c_m_rx;
 architecture Behavioral of i2c_m_rx is
 	signal DOUT_S: std_logic_vector(7 downto 0);
 	signal SDA_IN, START, START_RST, STOP, ACTIVE, ACK	: std_logic;
-	signal SHIFTREG	: std_logic_vector(8 downto 0);
-	signal STATE : std_logic_vector(1 downto 0);		-- 00 - iddle state	
+	signal SHIFTREG	: std_logic_vector(8 downto 0) := "000000000";
+	signal STATE : std_logic_vector(1 downto 0) := "00";		-- 00 - iddle state	
 	signal addrData : std_logic;																		-- 01 - DADDR  compare
 	signal count : std_logic_vector(3 downto 0);
-	signal reset : std_logic;-- 10 - ADDR compare																		-- 11 - DATA read
+	signal reset : std_logic;-- 10 - ADDR compare	-- 11 - DATA read
+	signal scl_val : std_logic := '0';
 begin
 
+process (CLK)
+begin 
+	if(CLK'EVENT and CLK = '1') then
+			SCL <= '1';
+			scl_val <= '1';
+	elsif(CLK'EVENT and CLK = '0') then  
+			SCL <= '0';
+			scl_val <= '0';
+	end if;
+end process;
 
 -- stop condition detection
-process (RST, SCL, SDA, START, reset)
+process (RST, scl_val, SDA, START, reset)
 begin
-	if (RST = '0' or (SCL = '0')) or START = '1' or reset = '0' then
+	if (RST = '0' or (scl_val = '0')) or START = '1' or reset = '0' then
 		STOP <= '0';
 		reset <= '1';
 		if(STATE = "00") then
 			addrData <= '0';
 			count <= "0110";
 		end if;
-	elsif SCL = '1' and (SDA = '1' and SDA'EVENT) then
+	elsif scl_val = '1' and (SDA = '1' and SDA'EVENT) then
 		STOP <= '1';
 	end if;
 end process;
 
 ------------------------------------------------------------------------------
 -- start condition detection, method 2 ( simple - but week against noise )
-process (RST, SCL, SDA_IN, START)
+process (RST, scl_val, SDA_IN, START)
 begin
-	if (SDA = '0' and (SCL = '0' and SCL'EVENT))  then
+	if (SDA = '0' and (scl_val = '0' and scl_val'EVENT))  then
 		START <= '1';
 		if(STATE = "01") then
 			count <= "0111";
 		end if;
-	elsif SCL = '1' and (SDA = '0' and SDA'event) then
+	elsif scl_val = '1' and (SDA = '0' and SDA'event) then
 		START <= '0';
 	end if;
 end process;
@@ -111,12 +124,15 @@ end process;
 
 ------------------------------------------------------------------------------
 -- WX data shifter
-process (RST, ACTIVE, ACK, SCL, SDA_IN)
+process (RST, ACTIVE, ACK, scl_val, SDA_IN)
 begin 
-if (STATE = "10" or STATE = "01") and (SCL = '1' and SCL'EVENT) then
+if (STATE = "10" or STATE = "01") and (scl_val = '1' and scl_val'EVENT) then
 	if(SDA = '0') then
+		DOUT <= "11111111";
 		addrData <= '1';
 		STATE <= "11";
+	else 
+		DOUT <= "00000000";
 	end if;
 	--SHIFTREG <= "000000001";	
 
