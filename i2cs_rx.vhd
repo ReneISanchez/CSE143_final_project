@@ -43,8 +43,8 @@ use IEEE.numeric_std.all;
 entity i2cs_rx is
 	generic(
 		WR       : std_logic:='0';
-		DADDR		: std_logic_vector(6 downto 0); --:= "0010001";		   -- 11h (22h) device address
-		ADDR		: std_logic_vector(7 downto 0)  --:= "00000000"		   -- 00h	    sub address		
+		DADDR		: std_logic_vector(6 downto 0) := "0000001"	   -- 11h (22h) device address
+		--ADDR		: std_logic_vector(7 downto 0) := "00000000"		   -- 00h	    sub address		
 	);
 	port(
 		RST		: in std_logic;
@@ -63,7 +63,9 @@ architecture Behavioral of i2cs_rx is
 	signal DOUT_S: std_logic_vector(7 downto 0);
 	signal SDA_IN, START, START_RST, STOP, ACTIVE, ACK	: std_logic;
 	signal SHIFTREG	: std_logic_vector(8 downto 0);
-	signal STATE : std_logic_vector(1 downto 0);		-- 00 - iddle state	
+	signal ACTIVE_REG : std_logic;
+	--signal write : std_logic_vector;
+	signal STATE : std_logic_vector(1 downto 0) := "00";		-- 00 - iddle state	
 																			-- 01 - DADDR  compare
 																			-- 10 - ADDR compare
 																			-- 11 - DATA read
@@ -115,23 +117,33 @@ end process;
 process (RST, STOP, START)
 begin
 	if RST = '0' or STOP = '1' then	 --or (SHIFTREG="000000001" and ACK = '0' and SCL='1' and SCL'event) 
-		ACTIVE <= '0';
+		ACTIVE_REG <= '0';
 	elsif START = '0' and START'event then
-		ACTIVE <= '1';
+		ACTIVE_REG <= '1';
 	end if;
 end process;
 
+process (SCL)
+begin
+	if (SCL = '1' and SCL'event) then
+		ACTIVE <= ACTIVE_REG;
+	end if;
+end process;
 ------------------------------------------------------------------------------
 -- RX data shifter
 process (RST, ACTIVE, ACK, SCL, SDA_IN)
 begin 
 if RST = '0' or ACTIVE = '0' then
-	SHIFTREG <= "000000001";	
+	SHIFTREG 	<= "000000001";	
 elsif SCL'event and SCL = '1' then
 	if ACK = '1' then
 		SHIFTREG <= "000000001";
 	else
-		SHIFTREG(8 downto 0) <= SHIFTREG(7 downto 0) & SDA_IN;
+		if SDA_in = 'Z' then
+			SHIFTREG(8 downto 0) <= SHIFTREG(7 downto 0) & '1';
+		else 
+			SHIFTREG(8 downto 0) <= SHIFTREG(7 downto 0) & '0';
+		end if;
 	end if;
 end if;							  
 end process;
@@ -142,8 +154,9 @@ process (RST, STATE, ACK, SHIFTREG)
 begin
 if RST = '0' then
 	DOUT_S <= "00000000";
-elsif STATE="11" and (ACK='1' and ACK'event) then 
+elsif STATE="10" and (ACK='1' and ACK'event) then 
 	DOUT_S <= SHIFTREG(7 downto 0);
+	--STATE <= "00";
 end if;
 end process; 
 
@@ -157,7 +170,7 @@ if RST = '0' or ACTIVE = '0' then
 elsif SCL='0' and SCL'event then 
 	if SHIFTREG(8) = '1' and STATE/="11" then
 		STATE <= std_logic_vector(unsigned(STATE) + "1");
-		if ((STATE="00" and SHIFTREG(7 downto 0) = DADDR & WR) or (STATE="01" and SHIFTREG(7 downto 0) = ADDR) or STATE="10") then 
+		if ((STATE="00" and SHIFTREG(7 downto 0) = DADDR & WR) or STATE="01") then 
 			ACK <= '1';
 		else
 			STATE <= "11";
