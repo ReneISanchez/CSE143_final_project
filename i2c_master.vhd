@@ -26,6 +26,7 @@ architecture Behavioral of i2c_master is
 	TYPE machine IS(ready,start,command,slv_ack1,wr,rd,slv_ack2,mstr_ack,stop);
 	SIGNAL state: machine;
 	SIGNAL scl_clk	: STD_LOGIC;
+	SIGNAL scl_en  : STD_LOGIC := '0';
 	SIGNAL scl_clk_past : STD_LOGIC;
 	SIGNAL data_clk: STD_LOGIC;
 	SIGNAL data_clk_past: STD_LOGIC;
@@ -73,6 +74,7 @@ process(CLK, RST) begin
 		state <= ready;
 		data_rd <= "00000000";
 		bit_cnt <= 7;
+		scl_en <= '0';
 		sda_data <= '1';
 	ELSIF(CLK'EVENT AND CLK = '1') THEN
 		IF(data_clk = '1' AND data_clk_past = '0') THEN
@@ -91,6 +93,7 @@ process(CLK, RST) begin
 					--if(scl_clk = '1' AND scl_clk_past = '0') THEN
 						sda_data <= addr_rw(bit_cnt);
 						state <= command;
+						scl_en <= '1';
 					--ELSE
 					--	state <= start;
 					--end if;
@@ -161,11 +164,15 @@ process(CLK, RST) begin
 					END IF;
 			
 				WHEN stop =>
-					IF(en = '1') THEN
-						state <= ready;
-					ELSE
-						state <= stop;
-					END IF;
+					scl_en <= '0';
+					state <= ready;
+			END CASE;
+		ELSIF(data_clk = '0' AND data_clk_past = '1') THEN
+			CASE state IS
+				WHEN stop =>
+					scl_en <= '0';
+				WHEN OTHERS =>
+				  
 			END CASE;
 		END IF;
 	END IF;
@@ -173,11 +180,11 @@ process(CLK, RST) begin
 end process;
 
 WITH state select
-	sda_ena_n <= scl_clk_past WHEN start,     --generate start condition
-                 NOT scl_clk_past WHEN stop,  --generate stop condition
+	sda_ena_n <= data_clk_past WHEN start,     --generate start condition
+                 NOT data_clk_past WHEN stop,  --generate stop condition
                  sda_data WHEN OTHERS;          --set to internal sda signal
 
-SCL <= scl_clk;
+SCL <= '0' WHEN (scl_en = '1' AND scl_clk = '0') ELSE 'Z';
 SDA <= '0' WHEN sda_ena_n = '0' ELSE 'Z';
 
 
