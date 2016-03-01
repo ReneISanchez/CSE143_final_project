@@ -61,7 +61,7 @@ end i2cs_rx;
 ------------------------------------------------------------------------------
 architecture Behavioral of i2cs_rx is
 	signal DOUT_S: std_logic_vector(7 downto 0);
-	signal SDA_IN, START, START_RST, STOP, ACTIVE, ACK	: std_logic;
+	signal SDA_IN, SCL_IN, START, START_RST, STOP, ACTIVE, ACK	: std_logic;
 	signal SHIFTREG	: std_logic_vector(8 downto 0);
 	signal ACTIVE_REG : std_logic;
 	--signal write : std_logic_vector;
@@ -92,22 +92,22 @@ begin
 
 ------------------------------------------------------------------------------
 -- start condition detection, method 2 ( simple - but week against noise )
-process (RST, SCL, SDA_IN)
+process (RST, SCL_IN, SDA_IN)
 begin
-	if RST = '0' or SCL = '0' then
+	if RST = '0' or SCL_IN = '0' then
 		START <= '0';
-	elsif SCL = '1' and (SDA_IN = '0' and SDA_IN'event) then
+	elsif SCL_IN = '1' and (SDA_IN = '0' and SDA_IN'event) then
 		START <= '1';
 	end if;
 end process;
 
 ------------------------------------------------------------------------------
 -- stop condition detection
-process (RST, SCL, SDA_IN, START)
+process (RST, SCL_IN, SDA_IN, START)
 begin
-	if RST = '0' or SCL = '0' or START='1' then
+	if RST = '0' or SCL_IN = '0' or START='1' then
 		STOP <= '0';
-	elsif SCL = '1' and (SDA_IN = '1' and SDA_IN'event) then
+	elsif SCL_IN = '1' and (SDA_IN = '1' and SDA_IN'event) then
 		STOP <= '1';
 	end if;
 end process;
@@ -117,25 +117,25 @@ end process;
 process (RST, STOP, START)
 begin
 	if RST = '0' or STOP = '1' then	 --or (SHIFTREG="000000001" and ACK = '0' and SCL='1' and SCL'event) 
-		ACTIVE_REG <= '0';
+		ACTIVE <= '0';
 	elsif START = '0' and START'event then
-		ACTIVE_REG <= '1';
+		ACTIVE <= '1';
 	end if;
 end process;
 
-process (SCL)
-begin
-	if (SCL = '1' and SCL'event) then
-		ACTIVE <= ACTIVE_REG;
-	end if;
-end process;
+--process (SCL_IN)
+--begin
+	--if (SCL_IN = '1' and SCL_IN'event) then
+		--ACTIVE <= ACTIVE_REG;
+	--end if;
+--end process;
 ------------------------------------------------------------------------------
 -- RX data shifter
-process (RST, ACTIVE, ACK, SCL, SDA_IN)
+process (RST, ACTIVE, ACK, SCL_IN, SDA_IN)
 begin 
 if RST = '0' or ACTIVE = '0' then
 	SHIFTREG 	<= "000000001";	
-elsif SCL'event and SCL = '1' then
+elsif SCL_IN'event and SCL_IN = '1' then
 	if ACK = '1' then
 		SHIFTREG <= "000000001";
 	else
@@ -162,12 +162,12 @@ end process;
 
 ------------------------------------------------------------------------------
 -- ACK
-process (RST, SCL, SHIFTREG, STATE, ACTIVE)
+process (RST, SCL_IN, SHIFTREG, STATE, ACTIVE)
 begin
 if RST = '0' or ACTIVE = '0' then
 	ACK <= '0';
 	STATE <= "00";
-elsif SCL='0' and SCL'event then 
+elsif SCL_IN='0' and SCL_IN'event then 
 	if SHIFTREG(8) = '1' and STATE/="11" then
 		STATE <= std_logic_vector(unsigned(STATE) + "1");
 		if ((STATE="00" and SHIFTREG(7 downto 0) = DADDR & WR) or STATE="01") then 
@@ -185,6 +185,7 @@ end process;
 -- ACK responce
 SDA_IN <= SDA;
 SDA <= '0' when ACK = '1' else 'Z';
+SCL_IN <= '1' when SCL = 'Z' else '0';
 
 ------------------------------------------------------------------------------
 DOUT(7 downto 0) <= DOUT_S(7 downto 0);

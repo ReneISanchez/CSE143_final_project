@@ -87,7 +87,7 @@ BEGIN
   stim_proc: process
    begin         
         wait for 7 ns;
-        RST <='1';
+        --RST <='1';
 		    
         wait;
   end process;
@@ -99,6 +99,7 @@ BEGIN
       
       en_SDA <= '0'; --let SDA be SDA
       wait for 49500 ps;
+		rst <= '1';
       en_SDA <= '0';
       wait for 4000 ps;
       en_SDA <= '0';
@@ -114,6 +115,31 @@ BEGIN
       en_SDA <= '1';
       wait for 4000 ps;
       en_SDA <= '0';
+		en <= '1';
+		
+		wait for 470000 ps;
+		rst <= '0';
+		wait for 800000 ps;
+		rst <= '1';
+		en_SDA <= '0';
+      wait for 4000 ps;
+      en_SDA <= '0';
+      wait for 4000 ps;
+      en_SDA <= '1';
+      wait for 4000 ps;
+      en_SDA <= '0';
+      wait for 4000 ps;
+      en_SDA <= '1';
+      wait for 4000 ps;
+      en_SDA <= '1';
+      wait for 4000 ps;
+      en_SDA <= '1';
+      wait for 4000 ps;
+      en_SDA <= '0';
+		en <= '1';
+		
+		
+		
       wait;
   end process;
 END;
