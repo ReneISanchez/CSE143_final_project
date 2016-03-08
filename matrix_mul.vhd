@@ -48,22 +48,25 @@ architecture Behavioral of matrix_mul is
 	type result is array(0 to M-1) of result33;
 	
 	
+	variable i,j,k : integer:= 0;
+	
+	
 	SIGNAL result_done : STD_LOGIC;
 	SIGNAL count : STD_LOGIC_VECTOR(1 DOWNTO 0);
 	
-function mm (a : matrix1; b: matrix2 ) return result is
-variable i,j,k : integer:= 0;
-variable prod : result:=(others => (others => (others => '0')));
-begin
-for i in 0 to N-1 loop
-for j in 0 to M-1 loop
-for k in 0 to M-1 loop
-	prod(i)(j) := STD_LOGIC_VECTOR(to_unsigned(prod(i)(j),8) + (to_unsigned(a(i)(k),8) * to_unsigned(b(k)(j),8)));
-end loop;
-end loop;
-end loop;
-return prod;
-end mm;
+--function mm (a : matrix1; b: matrix2 ) return result is
+--variable i,j,k : integer:= 0;
+--variable result : result:=(others => (others => (others => '0')));
+--begin
+--for i in 0 to N-1 loop
+--for j in 0 to M-1 loop
+--for k in 0 to M-1 loop
+--	result(i)(j) := STD_LOGIC_VECTOR(to_unsigned(result(i)(j),8) + (to_unsigned(a(i)(k),8) * to_unsigned(b(k)(j),8)));
+--end loop;
+--end loop;
+--end loop;
+--return result;
+--end mm; 
 
 	
 	
@@ -96,10 +99,23 @@ process(count, CLK) begin
 end process;
 
 
-process(state, gotM1, gotM2) begin
-	if( (state = compute) AND (gotM1 = '1') AND (gotM2 = '1') ) then
-		result <= mm(matrix1,matrix2);
-		result_done <= '1';
+process(state, gotM1, gotM2, CLK) begin
+	if( (state = compute) AND (gotM1 = '1') AND (gotM2 = '1') AND (CLK'EVENT AND CLK = '1')) then
+		if(i = N-1) then
+			result_done <= '1';
+		end if;
+		
+		if(j = M-1) then
+			j <= 0;
+			i <= i+1;
+		end if;
+		if(k = to_unsigned(P-1)) then
+			k <= 0;
+			j <= j+1;
+		else k <= k + 1;
+		end if;
+		
+		result(i)(j) <= STD_LOGIC_VECTOR(to_unsigned(result(i)(j),8) + (to_unsigned(a(i)(k),8) * to_unsigned(b(k)(j),8)));
 	end if;
 end process;
 
