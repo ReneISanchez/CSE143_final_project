@@ -13,8 +13,8 @@ entity mat_mul is
 		data_slave  : in std_logic_vector(7 downto 0);
 		data_slave_ready : in std_logic;
 		done		: out std_logic;
-		data_in  : in  std_logic_vector(29491199 downto 0);
-		data_out	: out std_logic_vector(29491199 downto 0);
+		data_in  : in  std_logic_vector(16588799 downto 0);
+		data_out	: out std_logic_vector(16588799 downto 0);
 		matrixReq: out std_logic_vector(1 downto 0)
 		
 		
@@ -41,11 +41,12 @@ architecture Behavioral of mat_mul is
 	type matrix11 is array(0 to M-1) of std_logic_vector(7 downto 0); --column
 	type matrix1 is array(0 to N-1) of matrix11; --row  1080x1920
 	
-	type matrix22 is array(0 to M-1) of std_logic_vector(7 downto 0); --column
+	type matrix22 is array(0 to N-1) of std_logic_vector(7 downto 0); --column
 	type matrix2 is array(0 to M-1) of matrix22; --row 1920 x P
 	
-	type result33 is array(0 to M-1)  of std_logic_vector(7 downto 0); --column
+	type result33 is array(0 to N-1)  of std_logic_vector(7 downto 0); --column
 	type result is array(0 to N-1) of result33; --row 1080 x P
+	
 	
   shared variable m1 : matrix1;
 	shared variable m2 : matrix2;
@@ -56,7 +57,8 @@ architecture Behavioral of mat_mul is
 	SIGNAL readytosend : std_logic := '0';
 	
 	SIGNAL result_done : STD_LOGIC := '0';
-	SIGNAL count : STD_LOGIC_VECTOR(1 DOWNTO 0);
+	shared variable temp : STD_LOGIC_VECTOR(15 DOWNTO 0);
+	
 	
 --function mm (a : matrix1; b: matrix2 ) return result is
 --variable i,j,k : integer:= 0;
@@ -75,6 +77,8 @@ architecture Behavioral of mat_mul is
 	
 	
 begin
+
+
 
 --process(state, gotM1, gotM2, CLK) begin
 	--if( (state = compute) AND (gotM1 = '1') AND (gotM2 = '1') AND (CLK'EVENT AND CLK = '1')) then
@@ -96,41 +100,53 @@ begin
 --	end if;
 --end process;
 
-process(CLK, state) begin
-	if(state = getone) then
+process(state, clk) begin
+	if(state = ready) then
+	
+		
+	elsif(state = getone) then
 		matrixReq <= "00";
 		if(i < N AND gotM1 = '0') then
 			if(j < M) then
-				m1(i)(j) := data_in(29491199-(k*8) downto 29491199-(k*8)-7);
+				m1(i)(j) := data_in(16588799-(k*8) downto 16588799-(k*8)-7);
+				if(i < N AND j < N) then
+					r(i)(j) := "00000000";
+				end if;
 				j := j + 1;
 				k := k + 1;
+			
 			else
 				j := 0;
 				i := i + 1;
+		
 			end if;
 		else
 			i := 0;
 			j := 0;
 			k := 0;
 			gotM1 <= '1';
+
 		end if;
 	
 	elsif (state = gettwo) then
 		matrixReq <= "01";
-		if(i < N AND gotM2 = '0') then
-			if(j < M) then
-				m2(i)(j) := data_in(29491199-(k*8) downto 29491199-(k*8)-7);
+		if(i < M AND gotM2 = '0') then
+			if(j < N) then
+				m2(i)(j) := data_in(16588799-(k*8) downto 16588799-(k*8)-7);
 				j := j + 1;
 				k := k + 1;
+		
 			else
 				j := 0;
 				i := i + 1;
+			
 			end if;
 		else
 			i := 0;
 			j := 0;
 			k := 0;
 			gotM2 <= '1';
+	
 		end if;
 	
 	elsif (state = compute) then
@@ -142,22 +158,27 @@ process(CLK, state) begin
 		else
 			if(result_done = '0' AND i < N) then
 				if(j < to_integer(unsigned(P))) then
-					if(k < M) then
-						r(i)(j) := std_logic_vector(unsigned(r(i)(j)) + unsigned((unsigned(m1(i)(k)) * unsigned(m2(k)(j))) ));
+					if(k < N) then
+						temp := std_logic_vector(unsigned(m1(i)(k)) * unsigned(m2(k)(j)));
+						r(i)(j) := std_logic_vector(unsigned(r(i)(j)) + unsigned(temp(7 downto 0))  );
 						k := k + 1;
+					
 					else
 						k := 0;
 						j := j + 1;
+				
 					end if;
 				else
 					j := 0;
 					i := i + 1;
+			
 				end if;
 			else
 				result_done <= '1';
 				i := 0;
 				j := 0;
 				k := 0;
+			
 			end if;
 		end if;
 	
@@ -165,12 +186,14 @@ process(CLK, state) begin
 	
 	if(i < N AND readytosend = '0') then
 			if(j < M) then
-				data_out(29491199-(k*8) downto 29491199-(k*8)-7) <= r(i)(j);
+				data_out(16588799-(k*8) downto 16588799-(k*8)-7) <= r(i)(j);
 				j := j + 1;
 				k := k + 1;
+		
 			else
 				j := 0;
 				i := i + 1;
+			
 			end if;
 		else
 			i := 0;
@@ -178,11 +201,12 @@ process(CLK, state) begin
 			k := 0;
 			readytosend <= '1';
 			matrixReq <= "10";
+
 		end if;
 	
 		
 	else
-	
+		
 	end if;
 
 end process;
@@ -195,6 +219,7 @@ process(CLK, RST) begin
 		upperP <= '0';
 		lowerP <= '0';
 		done <= '0';
+		data_slave_r_prev <= '0';
 	ELSIF(CLK'EVENT AND CLK = '1') THEN
 		CASE state IS
 			WHEN ready =>

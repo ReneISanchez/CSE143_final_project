@@ -17,26 +17,26 @@ ARCHITECTURE behavior OF mat_mul_tb IS
 		data_slave  : in std_logic_vector(7 downto 0);
 		data_slave_ready : in std_logic;
 		done		: out std_logic;
-		data_in  : in  std_logic_vector(29491199 downto 0);
-		data_out	: out std_logic_vector(29491199 downto 0);
+		data_in  : in  std_logic_vector(16588799 downto 0);
+		data_out	: out std_logic_vector(16588799 downto 0);
 		matrixReq: out std_logic_vector(1 downto 0)
         );
     END COMPONENT;
    --declare inputs and initialize them
    signal CLK : std_logic := '0';
    signal RST : std_logic := '0';
-   signal data_slave : std_logic_vector(7 downto 0);
+   signal data_slave : std_logic_vector(7 downto 0):= "00000000";
    --declare outputs and initialize them
   -- signal en  : std_logic := '1';
-	signal data_slave_ready  : std_logic := '1';
+	signal data_slave_ready  : std_logic := '0';
 	signal done: std_logic;
-	signal data_in : std_logic_vector(29491199 downto 0) := std_logic_vector(to_unsigned(4124124,(3686400)*8));
-	signal data_out : std_logic_vector(29491199 downto 0);
+	signal data_in : std_logic_vector(16588799 downto 0) := std_logic_vector(to_unsigned(2147483646,16588800));
+	signal data_out : std_logic_vector(16588799 downto 0);
 	signal matrixReq : std_logic_vector(1 downto 0);
 	
 	--signal SDA : std_logic;
    -- Clock period definitions
-   constant clk_period : time := 1 ns;
+   constant clk_period : time := 5 ps;
 BEGIN
     -- Instantiate the Unit Under Test (UUT)
    uut: mat_mul PORT MAP (
@@ -61,7 +61,7 @@ BEGIN
    -- Stimulus process
   stim_proc: process
    begin         
-        wait for 7 ns;
+        wait for 7 ps;
         RST <='1';
         wait;
   end process;
@@ -69,9 +69,21 @@ BEGIN
   
   write_proc : process
   begin
-      
-      wait until matrixReq = "10";
-		data_in <= std_logic_vector(to_unsigned(432232233,(3686400)*8));
+		wait until RST = '1';
+      wait until CLK = '0';
+		data_slave_ready <= '1';
+		wait until CLK = '1';
+		
+		wait until CLK = '0';
+		data_slave_ready <= '0';
+		data_slave <= "00001111";
+		wait until CLK = '1';
+		
+		wait until CLK = '0';
+		data_slave_ready <= '1';
+		
+      wait until matrixReq = "01";
+		data_in <= std_logic_vector(to_unsigned(123456789,16588800));
 		
       wait;
   end process;
