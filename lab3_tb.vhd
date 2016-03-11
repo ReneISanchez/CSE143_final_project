@@ -25,14 +25,14 @@ ARCHITECTURE behavior OF lab3_tb IS
         );
     END COMPONENT i2c_master;
 	 
-	 COMPONENT i2cs_rx
+	 COMPONENT i2c_slave
 	 PORT(
 		RST		: in std_logic;
 		SCL		: in std_logic;
 		SDA 		: inout std_logic;
 		DOUT		: out std_logic_vector(7 downto 0)
 		);
-	  END COMPONENT i2cs_rx;
+	  END COMPONENT i2c_slave;
 
 	  COMPONENT ram_file
 	  PORT(
@@ -144,7 +144,7 @@ BEGIN
 			 scl => scl
         );    
 		  
-   uut_slave: i2cs_rx PORT MAP(
+   uut_slave: i2c_slave PORT MAP(
 			 rst => rst, 
 			 scl => scl,
 			 --output_slave => sda,
